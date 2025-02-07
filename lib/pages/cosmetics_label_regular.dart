@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:price_label_web/models/price_label_promo.dart';
+import 'package:price_label_web/models/cosmetics_label_regular.dart';
 
-import '../controllers/price_label_no_promo_controller.dart';
-import '../models/price_label_no_promo.dart';
+import '../controllers/cosmetics_label_regular_controller.dart';
 
 class PriceLabelNonPromoView extends StatelessWidget {
   const PriceLabelNonPromoView({super.key});
@@ -14,7 +13,7 @@ class PriceLabelNonPromoView extends StatelessWidget {
     Get.put(PriceLabelNoPromoController());
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Price Label No Promotion"),
+        title: const Text("Cosmetics Label Regular"),
         automaticallyImplyLeading: true,
       ),
       body: Padding(
@@ -80,6 +79,32 @@ class PriceLabelNonPromoView extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      SizedBox(
+                        height: 30,
+                        width: 150,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            con.pickExcelFile(Get.context!);
+                          },
+                          child: const Text("Upload"),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 30,
+                        width: 180,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            con.downloadTemplate();
+                          },
+                          child: const Text("Download Template"),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(
                     height: 20,
                   ),
@@ -158,7 +183,7 @@ class PriceLabelNonPromoView extends StatelessWidget {
                           )),
                       ElevatedButton(
                         onPressed: () async {
-                          await con.generatePdf(isDownload: true);
+                          con.downloadPDF(isDownload: true);
                         },
                         child: const Text("Export"),
                       ),
@@ -198,6 +223,9 @@ class PriceLabelNonPromoView extends StatelessWidget {
                         InkWell(
                           onTap: () {
                             con.clearAllData();
+                          },
+                          onDoubleTap: () {
+                            con.generatePriceLabelNoPromoData();
                           },
                           child: Container(
                             height: 30,
@@ -378,7 +406,8 @@ class PriceLabelNonPromoView extends StatelessWidget {
                                                                   60, // Match width of heading
                                                               child: Text(
                                                                 promo.price
-                                                                    .toString(),
+                                                                    .toStringAsFixed(
+                                                                        2),
                                                                 textAlign:
                                                                     TextAlign
                                                                         .center,
@@ -465,42 +494,70 @@ class PriceLabelNonPromoView extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // Row(
+                  //   children: [
+                  //     Obx(
+                  //       () => Checkbox.adaptive(
+                  //         value: con.isRedColor.value,
+                  //         onChanged: (val) {
+                  //           con.isRedColor.toggle();
+                  //         },
+                  //       ),
+                  //     ),
+                  //     const Text("Red Color")
+                  //   ],
+                  // ),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
-                      Obx(
-                        () => Checkbox.adaptive(
-                          value: con.isRedColor.value,
-                          onChanged: (val) {
-                            con.isRedColor.toggle();
-                          },
+                      const SizedBox(
+                        width: 90,
+                        child: Text("VAT Text: "),
+                      ),
+                      SizedBox(
+                        height: 30,
+                        width: 250,
+                        child: TextFormFieldWidget2(
+                          title: "VAT Text",
+                          controller: con.vatTextController.value,
+                          enforced: false,
+                          enabled: true,
+                          readOnly: false,
                         ),
                       ),
-                      const Text("Red Color")
+                      TextButton(
+                        onPressed: () {
+                          con.vatTextController.value.text =
+                              "* All prices are inclusive of VAT";
+                        },
+                        child: const Text("Default"),
+                      ),
                     ],
                   ),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
-                      const Text("Text: "),
+                      const SizedBox(
+                        width: 90,
+                        child: Text("Optional Text: "),
+                      ),
                       SizedBox(
-                        height: 50,
+                        height: 30,
                         width: 250,
-                        child: TextFormField(
-                          onChanged: con.updateText,
-                          initialValue: con.smallText.value,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: Colors.black),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: Colors.blue),
-                            ),
-                            fillColor: Colors.white,
-                            filled: true,
-                          ),
+                        child: TextFormFieldWidget2(
+                          title: "Optional Text",
+                          controller: con.optionalTextController.value,
+                          enforced: false,
+                          enabled: true,
+                          readOnly: false,
                         ),
-                      )
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          con.optionalTextController.value.clear();
+                        },
+                        child: const Text("Clear"),
+                      ),
                     ],
                   ),
                 ],
@@ -513,143 +570,54 @@ class PriceLabelNonPromoView extends StatelessWidget {
   }
 
   Widget _buildPreviewSection() {
-    var con = Get.find<PriceLabelNoPromoController>();
+    final con = Get.find<PriceLabelNoPromoController>();
+    const itemsPerPage = 8;
 
     return GetBuilder<PriceLabelNoPromoController>(
       builder: (controller) {
-        const itemsPerPage = 8; // Define the number of items per page
-
         if (controller.data.isEmpty) {
           return Container(
-            color: Colors.white,
-            width: 794, // A4 width in pixels
-            height: 1123, // A4 height in pixels
+            width: 794,
+            height: 1123,
             alignment: Alignment.center,
-            child: const Text(
-              "No items found",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
+            child: const Text("No items found"),
           );
         }
 
-        // Calculate total pages dynamically
         final totalPages = (controller.data.length / itemsPerPage).ceil();
-        controller.totalPages.value = totalPages;
-
-        // Ensure `repaintKeys` are dynamically updated
-        while (controller.repaintKeys.length < totalPages) {
-          controller.repaintKeys.add(GlobalKey());
-        }
-
-        // Scroll Controller
-        final ScrollController scrollController = ScrollController();
-
-        // Listen to Scroll Events
-        scrollController.addListener(() {
-          final scrollOffset =
-              scrollController.offset; // Current scroll position
-          const pageHeight = 1123.0; // Fixed height of each A4 page
-          final currentPage = (scrollOffset / pageHeight).floor() + 1;
-
-          if (controller.currentPage.value != currentPage) {
-            controller.currentPage.value = currentPage.clamp(1, totalPages);
-          }
-        });
-
-        // Generate Content for All Pages
-        List<Widget> allPages = [];
-        for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-          // Calculate data for each page
-          final startIndex = pageIndex * itemsPerPage;
-          final endIndex = (startIndex + itemsPerPage > controller.data.length)
-              ? controller.data.length
-              : startIndex + itemsPerPage;
-          final pageData = controller.data.sublist(startIndex, endIndex);
-
-          allPages.add(
-            RepaintBoundary(
-              key: controller.repaintKeys[pageIndex],
-              child: Container(
-                color: Colors.white,
-                width: 794, // A4 width in pixels
-                height: 1123, // A4 height in pixels
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                margin: const EdgeInsets.only(
-                    bottom: 10), // Add spacing between pages
-                alignment: Alignment.topCenter,
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, // Two items per row
-                    crossAxisSpacing: 105.0,
-                    mainAxisSpacing: 50,
-                    childAspectRatio: 302.36 / 219.21,
-                  ),
-                  itemCount: pageData.length,
-                  itemBuilder: (context, index) {
-                    final item = pageData[index];
-                    return Obx(() => PriceLabelPromoWidget(
-                          promo: item,
-                          vatText: con.smallText.value,
-                          isRed: con.isRedColor.value,
-                        ));
-                  },
-                ),
-              ),
-            ),
-          );
-        }
+        final scrollController = ScrollController();
 
         return Column(
           children: [
-            // Header Section
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Obx(() => Text(
-                        "Page ${controller.currentPage.value} of ${controller.totalPages.value}",
+                        "Page ${controller.currentPage.value} of $totalPages",
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       )),
+                  const SizedBox(width: 25),
                   Row(
                     children: [
                       ElevatedButton(
-                        onPressed: () {
-                          if (controller.currentPage.value > 1) {
-                            controller.currentPage.value--;
-                            scrollController.animateTo(
-                              (controller.currentPage.value - 1) * 1123.0,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
+                        onPressed: () => controller.currentPage.value > 1
+                            ? controller.currentPage.value--
+                            : null,
                         child: const Text("Previous"),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton(
-                        onPressed: () {
-                          if (controller.currentPage.value < totalPages) {
-                            controller.currentPage.value++;
-                            scrollController.animateTo(
-                              (controller.currentPage.value - 1) * 1123.0,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
+                        onPressed: () =>
+                            controller.currentPage.value < totalPages
+                                ? controller.currentPage.value++
+                                : null,
                         child: const Text("Next"),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton(
-                        onPressed: con.generatePdf,
+                        onPressed: () => con.downloadPDF(isDownload: false),
                         child: const Text("Print"),
                       ),
                     ],
@@ -657,20 +625,281 @@ class PriceLabelNonPromoView extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-
-            // Continuous Scrolling Section
             Expanded(
               child: SingleChildScrollView(
                 controller: scrollController,
                 child: Column(
-                  children: allPages,
+                  children: [
+                    for (int pageIndex = 0; pageIndex < totalPages; pageIndex++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 15),
+                        child: Container(
+                          width: 794,
+                          height: 1123,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 40, vertical: 20),
+                          color: Colors.white,
+                          child: Obx(() => GridView(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 105.0,
+                                  mainAxisSpacing: 50.0,
+                                  childAspectRatio: 302.36 / 219.21,
+                                ),
+                                children: [
+                                  for (int i = 0; i < itemsPerPage; i++)
+                                    if (pageIndex * itemsPerPage + i <
+                                        controller.data.length)
+                                      PriceLabelPromoWidget(
+                                        promo: controller
+                                            .data[pageIndex * itemsPerPage + i],
+                                        con: con,
+                                        // isRed: con.isRedColor.value,
+                                      )
+                                    else
+                                      const SizedBox.shrink(),
+                                ],
+                              )),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+class PriceLabelPromoWidget extends StatelessWidget {
+  final PriceLabelNoPromoController con;
+  final CosmeticsLabelRegular promo;
+  final bool? isRed;
+  const PriceLabelPromoWidget({
+    super.key,
+    required this.promo,
+    this.isRed = false,
+    required this.con,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Calculate dynamic height for each item
+    const totalHeight = 172.5; // Total available height for the container
+    final itemCount = promo.items.length;
+    final itemHeight =
+        itemCount > 0 ? totalHeight / itemCount : 0; // Maximum 4 items
+    return Container(
+      height: 219.21,
+      width: 302.36,
+      // 302.36 / 188.98,
+      decoration: BoxDecoration(
+        // color: Colors.amber,
+        border: Border.all(
+          color: isRed == true ? Colors.red : Colors.black,
+          width: 2,
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            height: 25,
+            width: 302.36,
+            decoration: BoxDecoration(
+                // color: Colors.amber,
+                border: Border(
+                    bottom: BorderSide(
+              color: isRed == true ? Colors.red : Colors.black,
+              width: 2,
+            ))),
+            child: IntrinsicHeight(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 210,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                        // color: Colors.blue,
+                        border: Border(
+                            right: BorderSide(
+                      color: isRed == true ? Colors.red : Colors.black,
+                      width: 1,
+                    ))),
+                    child: const Text(
+                      "Description",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'Myriad Pro',
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 90.5,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                        // color: Colors.blue,
+                        ),
+                    child: const Text(
+                      "Price",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'Myriad Pro',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              // description
+              Container(
+                width: 210,
+                height: totalHeight,
+                decoration: BoxDecoration(
+                  // color: Colors.red,
+                  border: Border(
+                    right: BorderSide(
+                      color: isRed == true ? Colors.red : Colors.black,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: itemCount < 4
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
+                  children: List.generate(itemCount, (index) {
+                    return Container(
+                      height:
+                          itemHeight.toDouble(), // Dynamic height for each item
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: index < itemCount - 1
+                                ? isRed == true
+                                    ? Colors.red
+                                    : Colors.black
+                                : Colors.transparent,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        promo.items[index].name,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'Myriad Pro',
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              // Now Price Container
+              Container(
+                width: 90.5,
+                height: totalHeight,
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: itemCount < 4
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
+                  children: List.generate(itemCount, (index) {
+                    return Container(
+                      height:
+                          itemHeight.toDouble(), // Dynamic height for each item
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: index < itemCount - 1
+                                ? isRed == true
+                                    ? Colors.red
+                                    : Colors.black
+                                : Colors.transparent,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            "AED",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontFamily: 'Myriad Pro',
+                              height: 0.8,
+                            ),
+                          ),
+                          Text(
+                            promo.items[index].price.toStringAsFixed(2),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'Myriad Pro',
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Container(
+            height: 19,
+            width: 302.36,
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 10, left: 5),
+            decoration: BoxDecoration(
+                color: Colors.transparent,
+                border: Border(
+                  top: BorderSide(
+                    color: isRed == true ? Colors.red : Colors.black,
+                    width: 1,
+                  ),
+                )),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  con.optionalTextController.value.text,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontFamily: 'Myriad Pro',
+                    color: isRed == true ? Colors.red : Colors.black,
+                  ),
+                ),
+                Text(
+                  con.vatTextController.value.text,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontFamily: 'Myriad Pro',
+                    fontWeight: FontWeight.normal,
+                    color: isRed == true ? Colors.red : Colors.black,
+                  ),
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
     );
   }
 }
@@ -738,222 +967,6 @@ class TextFormFieldWidget2 extends StatelessWidget {
         ),
         fillColor: Colors.white,
         filled: true,
-      ),
-    );
-  }
-}
-
-class PriceLabelPromoWidget extends StatelessWidget {
-  final PriceLabelNoPromo promo;
-  final String? vatText;
-  final bool? isRed;
-  const PriceLabelPromoWidget({
-    super.key,
-    required this.promo,
-    this.vatText,
-    this.isRed = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Calculate dynamic height for each item
-    const totalHeight = 167.0; // Total available height for the container
-    final itemCount = promo.items.length;
-    final itemHeight =
-        itemCount > 0 ? totalHeight / itemCount : 0; // Maximum 4 items
-    return Container(
-      height: 219.21,
-      width: 302.36,
-      // 302.36 / 188.98,
-      decoration: BoxDecoration(
-        // color: Colors.amber,
-        border: Border.all(
-          color: isRed == true ? Colors.red : Colors.black,
-          width: 2,
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            height: 30,
-            width: 302.36,
-            decoration: BoxDecoration(
-                // color: Colors.amber,
-                border: Border(
-                    bottom: BorderSide(
-              color: isRed == true ? Colors.red : Colors.black,
-              width: 2,
-            ))),
-            child: IntrinsicHeight(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 210,
-                    height: 30,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                        // color: Colors.blue,
-                        border: Border(
-                            right: BorderSide(
-                      color: isRed == true ? Colors.red : Colors.black,
-                      width: 1,
-                    ))),
-                    child: const Text(
-                      "Description",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'Myriad Pro',
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 90.5,
-                    height: 30,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                        // color: Colors.blue,
-                        ),
-                    child: const Text(
-                      "Price",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'Myriad Pro',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Row(
-            children: [
-              // description
-              Container(
-                width: 210,
-                height: totalHeight,
-                decoration: BoxDecoration(
-                  // color: Colors.red,
-                  border: Border(
-                    right: BorderSide(
-                      color: isRed == true ? Colors.red : Colors.black,
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: itemCount < 4
-                      ? MainAxisAlignment.center
-                      : MainAxisAlignment.start,
-                  children: List.generate(itemCount, (index) {
-                    return Container(
-                      height:
-                          itemHeight.toDouble(), // Dynamic height for each item
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: index < itemCount - 1
-                                ? isRed == true
-                                    ? Colors.red
-                                    : Colors.black
-                                : Colors.transparent,
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        promo.items[index].name,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontFamily: 'Myriad Pro',
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-              // Now Price Container
-              Container(
-                width: 90.5,
-                height: totalHeight,
-                alignment: Alignment.center,
-                child: Column(
-                  mainAxisAlignment: itemCount < 4
-                      ? MainAxisAlignment.center
-                      : MainAxisAlignment.start,
-                  children: List.generate(itemCount, (index) {
-                    return Container(
-                      height:
-                          itemHeight.toDouble(), // Dynamic height for each item
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: index < itemCount - 1
-                                ? isRed == true
-                                    ? Colors.red
-                                    : Colors.black
-                                : Colors.transparent,
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        "AED ${promo.items[index].price.toStringAsFixed(2)}",
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontFamily: 'Myriad Pro',
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Container(
-            height: 19,
-            width: 302.36,
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 10, left: 5),
-            decoration: BoxDecoration(
-                color: Colors.transparent,
-                border: Border(
-                  top: BorderSide(
-                    color: isRed == true ? Colors.red : Colors.black,
-                    width: 1,
-                  ),
-                )),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Spacer(),
-                // Text(
-                //   "* All prices are in AED",
-                //   style: TextStyle(
-                //     fontSize: 10,
-                //     fontFamily: 'Myriad Pro',
-                //     color: isRed == true ? Colors.red : Colors.black,
-                //   ),
-                // ),
-                Text(
-                  vatText ?? "* All Prices Inclusive of VAT",
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontFamily: 'Myriad Pro',
-                    fontWeight: FontWeight.normal,
-                    color: isRed == true ? Colors.red : Colors.black,
-                  ),
-                ),
-              ],
-            ),
-          )
-        ],
       ),
     );
   }

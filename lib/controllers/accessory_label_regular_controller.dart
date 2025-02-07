@@ -5,41 +5,32 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import 'package:get/get.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:price_label_web/controllers/settings_controller.dart';
-import 'package:price_label_web/models/accessory_promo.dart';
+import 'package:price_label_web/models/accessory_regular.dart';
 import 'package:printing/printing.dart';
 
 import 'dart:html' as html;
 
-class AccessoryLabelPromoController extends GetxController {
-  var settingCon = Get.find<SettingsController>();
+class AccessoryLabelNoPromoController extends GetxController {
+  var settingsCon = Get.find<SettingsController>();
   final TextEditingController fileNameController = TextEditingController();
-  final brandNameController = TextEditingController().obs;
-  final barcodeController = TextEditingController().obs;
-  final percentageController = TextEditingController().obs;
-  final oldPriceController = TextEditingController().obs;
-  final newPriceController = TextEditingController().obs;
+  final TextEditingController brandNameController = TextEditingController();
+  final TextEditingController barcodeController = TextEditingController();
+  final TextEditingController priceController = TextEditingController();
   var isEditMode = false.obs;
   final currentEditIndex = (-1).obs;
-  var data = <AccessoryPromo>[].obs;
-  var isRedColor = true.obs;
+  List<GlobalKey> repaintKeys = [];
+  var data = <AccessoryRegular>[].obs;
+  // var isRedColor = false.obs;
   final vatTextController =
-      TextEditingController(text: '* All prices are inclusive of VAT').obs;
+      TextEditingController(text: "* All prices are inclusive of VAT").obs;
   final optionalTextController = TextEditingController().obs;
   var currentPage = 1.obs;
   var totalPages = 1.obs;
-  var editIndex = -1.obs; // Stores the index of the item being edited
-
-  final transformationController = TransformationController(); // For zoom/pan
-  var pickedColor = (Colors.red as Color).obs;
-
-  late pw.Font regularFont; // Font for regular text
-  late pw.Font boldFont; // Font for bold text
-  var selectedRadio = 1.obs;
+  var editIndex = -1.obs;
 
   final RxDouble progress = 0.0.obs; // Progress (0.0 to 1.0)
   final RxString progressMessage = "".obs; // Progress message
@@ -49,67 +40,37 @@ class AccessoryLabelPromoController extends GetxController {
 
   @override
   void onInit() {
-    percentageController.value.addListener(() {
-      // Check if any of the row controllers have a value
-      var controllers = [
-        brandNameController,
-        barcodeController,
-        oldPriceController,
-        newPriceController,
-      ];
-      bool hasValue = controllers.any((controller) {
-        return controller.value.text.isNotEmpty;
-      });
-
-      // Set isEnabledPerc based on the presence of values in row controllers
-      isEnabledPerc.value = !hasValue;
-
-      // Block percentageController from being updated if rows have values
-      if (hasValue && percentageController.value.text.isNotEmpty) {
-        Get.snackbar("Action Blocked",
-            "Cannot change percentage while rows have values.");
-      }
-
-      // Enable or disable other fields based on percentageController text
-      isEnabled.value = percentageController.value.text.isNotEmpty;
-    });
+    super.onInit();
     vatTextController.value.addListener(() {
       update();
     });
     optionalTextController.value.addListener(() {
       update();
     });
-    if (settingCon.isDemoOn.value) {
-      generateAccessoryPromoData();
+    if (settingsCon.isDemoOn.value) {
+      generateAccessoryNoPromoData();
     }
-    super.onInit();
   }
 
-  void generateAccessoryPromoData() {
+  void generateAccessoryNoPromoData() {
     final math.Random random = math.Random();
 
-    // Generate random AccessoryPromo list
-    data.value = List<AccessoryPromo>.generate(
+    // Generate random AccessoryRegular list
+    data.value = List<AccessoryRegular>.generate(
       random.nextInt(11) +
-          20, // Random number of AccessoryPromo objects (20-30)
+          20, // Random number of AccessoryRegular objects (20-30)
       (index) {
         // Generate a random 13-digit barcode
         final barcode = List.generate(13, (_) => random.nextInt(10))
             .join(); // Generate a string of 13 random digits
 
-        // Generate a random oldPrice between 50 and 999
-        final oldPrice = random.nextDouble() * (999 - 50) + 50;
+        // Generate a random price between 50 and 999
+        final price = random.nextDouble() * (999 - 50) + 50;
 
-        // Select a random discount percentage (25%, 30%, 50%)
-        final discountPercentage = [25, 30, 50][random.nextInt(3)];
-        final newPrice = oldPrice - (oldPrice * discountPercentage / 100);
-
-        return AccessoryPromo(
+        return AccessoryRegular(
           brandName: "eylure", // Constant brand name
           barcode: barcode,
-          oldPrice: oldPrice,
-          newPrice: newPrice,
-          percentage: discountPercentage.toDouble(),
+          price: price,
         );
       },
     );
@@ -123,66 +84,49 @@ class AccessoryLabelPromoController extends GetxController {
   }
 
   /// Clears a specific row at the given index
-  void clearAllData() async {
-    data.clear();
-    update();
-  }
+  void clearRow(int index) {}
 
   /// Clears all rows
   void clearAllRows() {
-    brandNameController.value.clear();
-    barcodeController.value.clear();
-    oldPriceController.value.clear();
-    newPriceController.value.clear();
+    brandNameController.clear();
+    priceController.clear();
+    barcodeController.clear();
     debugPrint("Cleared all rows");
     isEditMode.value = false;
-    update();
   }
 
   void saveOrUpdatePriceLabelPromo() {
     // Collect data from controllers
-    final brandName = brandNameController.value.text.trim();
-    final barcode = barcodeController.value.text.trim();
-    final oldPrice =
-        double.tryParse(oldPriceController.value.text.trim()) ?? 0.0;
-    final newPrice =
-        double.tryParse(newPriceController.value.text.trim()) ?? 0.0;
-    final percentage =
-        double.tryParse(percentageController.value.text.trim()) ?? 0.0;
+    final brandName = brandNameController.text.trim();
+    final barcode = barcodeController.text.trim();
+    final price = double.tryParse(priceController.text.trim()) ?? 0.0;
 
     // Validate required fields
-    if (brandName.isEmpty) {
-      log("Error: Brand Name is required.");
+    if (brandName.isEmpty || barcode.isEmpty || price == 0.0) {
+      log("Error: Enter valid items.");
       return;
     }
 
     // Update or Create
     if (isEditMode.value) {
-      // Update existing AccessoryPromo
+      // Update existing AccessoryRegular
       final index = currentEditIndex.value;
       if (index >= 0 && index < data.length) {
-        data[index] = AccessoryPromo(
-          brandName: brandName,
-          barcode: barcode,
-          oldPrice: oldPrice,
-          newPrice: newPrice,
-          percentage: percentage,
-        );
-        log("Updated AccessoryPromo at index $index: ${data[index]}");
+        data[index] = AccessoryRegular(
+            brandName: brandName, barcode: barcode, price: price);
+        log("Updated AccessoryRegular at index $index: ${data[index]}");
       } else {
         log("Error: Invalid index for update.");
       }
     } else {
-      // Create new AccessoryPromo
-      final newPromo = AccessoryPromo(
+      // Create new AccessoryRegular
+      final newPromo = AccessoryRegular(
         brandName: brandName,
         barcode: barcode,
-        oldPrice: oldPrice,
-        newPrice: newPrice,
-        percentage: percentage,
+        price: price,
       );
       data.add(newPromo);
-      log("Added new AccessoryPromo: $newPromo");
+      log("Added new AccessoryRegular: $newPromo");
     }
 
     // Reset the edit mode
@@ -199,33 +143,18 @@ class AccessoryLabelPromoController extends GetxController {
     isEditMode.value = true;
     currentEditIndex.value = index;
 
-    // Get the AccessoryPromo to edit
+    // Get the AccessoryRegular to edit
     final promo = data[index];
 
     // Populate the controllers with the promo data
-    brandNameController.value.text = promo.brandName;
-    barcodeController.value.text = promo.barcode;
-    oldPriceController.value.text = promo.oldPrice.toStringAsFixed(2);
-    newPriceController.value.text = promo.newPrice.toStringAsFixed(2);
+    brandNameController.text = promo.brandName;
+    barcodeController.text = promo.barcode;
+    priceController.text = promo.price.toStringAsFixed(2);
 
-    log("Editing AccessoryPromo at index $index: $promo");
+    log("Editing AccessoryRegular at index $index: $promo");
 
     // Trigger UI updates
     update();
-  }
-
-  void onWasPriceChanged(String value) {
-    // Parse the percentage value
-    final percentage = double.tryParse(percentageController.value.text) ?? 0.0;
-
-    // Parse the Was Price value
-    final wasPrice = double.tryParse(value) ?? 0.0;
-
-    // Calculate the Now Price
-    final nowPrice = wasPrice - (wasPrice * percentage / 100);
-
-    // Update the Now Price controller for the corresponding index
-    newPriceController.value.text = nowPrice.toStringAsFixed(2);
   }
 
   void copyPriceLabelPromo(int index) {
@@ -234,18 +163,15 @@ class AccessoryLabelPromoController extends GetxController {
       final originalPromo = data[index];
 
       // Create a new copy with the same values
-      final copiedPromo = AccessoryPromo(
-        brandName: originalPromo.brandName,
-        barcode: originalPromo.barcode,
-        oldPrice: originalPromo.oldPrice,
-        newPrice: originalPromo.newPrice,
-        percentage: originalPromo.percentage,
-      );
+      final copiedPromo = AccessoryRegular(
+          brandName: originalPromo.brandName,
+          price: originalPromo.price,
+          barcode: originalPromo.barcode);
 
       // Insert the copy right after the original item
       data.insert(index + 1, copiedPromo);
 
-      log("Copied AccessoryPromo from index $index to index ${index + 1}: $copiedPromo");
+      log("Copied AccessoryRegular from index $index to index ${index + 1}: $copiedPromo");
 
       // Trigger UI updates
       update();
@@ -259,16 +185,21 @@ class AccessoryLabelPromoController extends GetxController {
     update();
   }
 
+  void clearAllData() {
+    data.clear();
+    update();
+  }
+
   void downloadPDF({required bool isDownload}) async {
     // showProgressDialog("Starting PDF generation...");
 
-    // Handle download or log
-    final pdfBytes = await generateAccessoriesPromoPdf(
-      items: data,
-      vatText: vatTextController.value.text,
-      optText: optionalTextController.value.text,
-      isRed: isRedColor.value,
-    );
+    // Handle download or print
+    final pdfBytes = await generateAccessoriesPdf(
+        items: data,
+        vatText: vatTextController.value.text,
+        optText: optionalTextController.value.text
+        // isRed: isRedColor.value,
+        );
     if (isDownload) {
       // updateProgress(1.0, "Downloading PDF...");
       await _downloadPdfWeb(pdfBytes);
@@ -292,8 +223,8 @@ class AccessoryLabelPromoController extends GetxController {
       html.AnchorElement(href: url)
         ..target = 'blank'
         ..download = fileNameController.text.isEmpty
-            ? 'Accessory_Label(${isRedColor.value ? 'Red' : 'Black&White'})_Promotion.pdf'
-            : "${fileNameController.text}_(${isRedColor.value ? 'Red' : 'Black&White'}).pdf"
+            ? 'Accessory_Label_Regular.pdf'
+            : "${fileNameController.text}.pdf"
         ..click();
       html.Url.revokeObjectUrl(url);
     }
@@ -345,12 +276,11 @@ class AccessoryLabelPromoController extends GetxController {
     return pw.Font.ttf(fontData.buffer.asByteData());
   }
 
-  // PDF Generation Function
-  Future<Uint8List> generateAccessoriesPromoPdf({
-    required List<AccessoryPromo> items,
+  Future<Uint8List> generateAccessoriesPdf({
+    required List<AccessoryRegular> items,
     required String vatText,
     required String optText,
-    required bool isRed,
+    // required bool isRed,
   }) async {
     final pdf = pw.Document();
     final font = await _loadFont();
@@ -372,21 +302,23 @@ class AccessoryLabelPromoController extends GetxController {
             width: 794,
             height: 1123,
             color: PdfColors.white,
+            // padding:
+            //     const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 20),
             child: pw.GridView(
               crossAxisCount: 3,
-              crossAxisSpacing: 22,
-              mainAxisSpacing: 23,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 25,
               childAspectRatio: totalWidth / totalHeight,
               children: [
                 for (final item in pageItems)
                   pw.SizedBox(
                     width: totalWidth,
                     height: totalHeight,
-                    child: _buildPdfAccessoryPromoLabel(
+                    child: _buildPdfAccessoryLabel(
                       item,
                       vatText,
                       optText,
-                      isRed,
+                      // isRed,
                       font,
                       totalWidth,
                       totalHeight,
@@ -409,18 +341,18 @@ class AccessoryLabelPromoController extends GetxController {
     return pdf.save();
   }
 
-// PDF Widget Builder
-  pw.Widget _buildPdfAccessoryPromoLabel(
-    AccessoryPromo promo,
+  pw.Widget _buildPdfAccessoryLabel(
+    AccessoryRegular promo,
     String vatText,
     String optText,
-    bool isRed,
+    // bool isRed,
     pw.Font font,
     double totalWidth,
     double totalHeight,
   ) {
-    final borderColor = isRed ? PdfColors.red : PdfColors.black;
-    final textColor = isRed ? PdfColors.red : PdfColors.black;
+    // final borderColor = isRed ? PdfColors.red : PdfColors.black;
+    const borderColor = PdfColors.black;
+    const textColor = PdfColors.black;
 
     return pw.Container(
       width: totalWidth,
@@ -434,88 +366,41 @@ class AccessoryLabelPromoController extends GetxController {
           pw.Container(
             width: totalWidth,
             height: 20,
-            decoration: pw.BoxDecoration(
+            decoration: const pw.BoxDecoration(
               border: pw.Border(
-                  bottom: pw.BorderSide(color: borderColor, width: 2)),
+                bottom: pw.BorderSide(
+                  color: borderColor,
+                  width: 2,
+                ),
+              ),
             ),
-            child: pw.Row(
-              children: [
-                _buildPdfHeaderCell(
-                  "ITEM",
-                  98,
-                  borderColor,
-                  font,
-                ),
-                _buildPdfHeaderCell(
-                  "WAS",
-                  38,
-                  borderColor,
-                  font,
-                ),
-                _buildPdfHeaderCell(
-                  "NOW",
-                  38,
-                  borderColor,
-                  font,
-                  isBorder: false,
-                ),
-              ],
-            ),
-          ),
-          // Price Section
-          pw.Container(
-            height: 56,
-            alignment: pw.Alignment.center,
-            // color: PdfColors.amber,
-            child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              mainAxisAlignment: pw.MainAxisAlignment.center,
-              children: [
-                _buildPdfBarcodeCell(promo, borderColor, font),
-                if (selectedRadio.value == 2)
-                  _buildPdfPrice(
-                    price: promo.oldPrice.toStringAsFixed(2),
-                    borderColor: borderColor,
-                    font: font,
-                    isStrikeThrough: true,
-                  ),
-                if (selectedRadio.value == 1)
-                  _buildPdfPrice2(
-                    price: promo.oldPrice.toStringAsFixed(2),
-                    borderColor: borderColor,
-                    font: font,
-                    isStrikeThrough: true,
-                  ),
-                _buildPdfPrice(
-                  price: promo.newPrice.toStringAsFixed(2),
-                  borderColor: borderColor,
-                  font: font,
-                  isStrikeThrough: false,
-                ),
-              ],
-            ),
-          ),
-          // Discount Section
-          pw.Container(
-            // color: PdfColors.red,
-            height: 25,
             child: pw.Row(
               children: [
                 pw.Container(
-                  width: 98,
-                  decoration: pw.BoxDecoration(
+                  width: 130,
+                  height: 20,
+                  decoration: const pw.BoxDecoration(
                     border: pw.Border(
                         right: pw.BorderSide(color: borderColor, width: 1)),
                   ),
-                ),
-                pw.Container(
-                  width: 76,
                   alignment: pw.Alignment.center,
                   child: pw.Text(
-                    "${promo.percentage}% OFF",
+                    "ITEM",
                     style: pw.TextStyle(
                       font: font,
-                      fontSize: 10,
+                      fontSize: 12,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.Container(
+                  width: 50,
+                  alignment: pw.Alignment.center,
+                  child: pw.Text(
+                    "PRICE",
+                    style: pw.TextStyle(
+                      font: font,
+                      fontSize: 12,
                       fontWeight: pw.FontWeight.bold,
                     ),
                   ),
@@ -523,14 +408,80 @@ class AccessoryLabelPromoController extends GetxController {
               ],
             ),
           ),
+          // Content
+          pw.Expanded(
+            child: pw.Row(
+              children: [
+                pw.Container(
+                    width: 130,
+                    height: 85,
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(
+                        right: pw.BorderSide(
+                          color: borderColor,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    alignment: pw.Alignment.center,
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: [
+                        pw.Text(
+                          promo.brandName.toUpperCase(),
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(
+                            font: font,
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.Text(
+                          promo.barcode,
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(
+                            font: font,
+                            fontSize: 12,
+                            color: textColor,
+                          ),
+                        ),
+                      ],
+                    )),
+                pw.Container(
+                    width: 50,
+                    alignment: pw.Alignment.center,
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: [
+                        pw.Text(
+                          "AED",
+                          style: pw.TextStyle(
+                            font: font,
+                            fontSize: 12,
+                            color: textColor,
+                          ),
+                        ),
+                        pw.Text(
+                          promo.price.toStringAsFixed(2),
+                          style: pw.TextStyle(
+                            font: font,
+                            fontSize: 12,
+                            color: textColor,
+                          ),
+                        ),
+                      ],
+                    )),
+              ],
+            ),
+          ),
           // Footer
           pw.Container(
             height: 15,
-            decoration: pw.BoxDecoration(
+            decoration: const pw.BoxDecoration(
               border:
                   pw.Border(top: pw.BorderSide(color: borderColor, width: 1)),
             ),
-            padding: const pw.EdgeInsets.only(right: 10, left: 10),
+            padding: const pw.EdgeInsets.symmetric(horizontal: 8),
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
@@ -558,179 +509,25 @@ class AccessoryLabelPromoController extends GetxController {
     );
   }
 
-  pw.Widget _buildPdfHeaderCell(
-    String text,
-    double width,
-    PdfColor borderColor,
-    pw.Font font, {
-    bool isBorder = true,
-  }) {
-    return pw.Container(
-      width: width,
-      decoration: pw.BoxDecoration(
-        border: pw.Border(
-            right: isBorder
-                ? pw.BorderSide(color: borderColor, width: 1)
-                : pw.BorderSide.none),
-      ),
-      alignment: pw.Alignment.center,
-      child: pw.Text(
-        text,
-        style: pw.TextStyle(
-          font: font,
-          fontSize: 12,
-          fontWeight: pw.FontWeight.bold,
-        ),
-      ),
-    );
+  void downloadTemplate() async {
+    String path = 'assets/samples/example_accessory_regular.xlsx';
+    ByteData data = await rootBundle.load(path);
+    var fileBytes = data.buffer.asUint8List();
+    await downloadPreforma(fileBytes, "Accessory Label Regular Preforma.xlsx");
   }
 
-  pw.Widget _buildPdfBarcodeCell(
-      AccessoryPromo promo, PdfColor borderColor, pw.Font font) {
-    return pw.Container(
-      width: 98,
-      decoration: pw.BoxDecoration(
-        border: pw.Border(right: pw.BorderSide(color: borderColor, width: 1)),
-      ),
-      alignment: pw.Alignment.center,
-      padding: const pw.EdgeInsets.only(bottom: 4),
-      child: pw.Column(
-        mainAxisAlignment: pw.MainAxisAlignment.end,
-        children: [
-          pw.Text(
-            promo.brandName.toUpperCase(),
-            style: pw.TextStyle(
-              font: font,
-              fontSize: 10,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-          pw.Text(
-            promo.barcode.toUpperCase(),
-            style: pw.TextStyle(
-              font: font,
-              fontSize: 11,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
+  Future<void> downloadPreforma(Uint8List pdfBytes, String name) async {
+    if (kIsWeb) {
+      final blob = html.Blob([pdfBytes], 'application/pdf');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..target = 'blank'
+        ..download = name
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    }
   }
 
-  pw.Widget _buildPdfPrice(
-      {required String price,
-      required PdfColor borderColor,
-      required pw.Font font,
-      required bool isStrikeThrough}) {
-    return pw.Container(
-      width: 38,
-      decoration: pw.BoxDecoration(
-        border: pw.Border(
-          right: pw.BorderSide(color: borderColor, width: 1),
-          bottom: pw.BorderSide(color: borderColor, width: 1),
-        ),
-      ),
-      alignment: pw.Alignment.center,
-      child: pw.Column(
-        mainAxisAlignment: pw.MainAxisAlignment.center,
-        children: [
-          pw.Text(
-            "AED",
-            style: pw.TextStyle(
-              font: font,
-              fontSize: 10,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-          pw.Stack(
-            children: [
-              pw.Text(
-                price,
-                style: pw.TextStyle(
-                  font: font,
-                  fontSize: 11,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              if (isStrikeThrough)
-                pw.Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 3.5,
-                  child: pw.Container(
-                    height: 1.2,
-                    color: isRedColor.value ? PdfColors.red : PdfColors.black,
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  pw.Widget _buildPdfPrice2({
-    required String price,
-    required PdfColor borderColor,
-    required pw.Font font,
-    required bool isStrikeThrough,
-  }) {
-    return pw.Container(
-      width: 38,
-      decoration: pw.BoxDecoration(
-        border: pw.Border(
-          right: pw.BorderSide(color: borderColor, width: 1),
-          bottom: pw.BorderSide(color: borderColor, width: 1),
-        ),
-      ),
-      alignment: pw.Alignment.center,
-      child: pw.Container(
-        alignment: pw.Alignment.center,
-        child: pw.Stack(
-          children: [
-            pw.Column(
-              mainAxisAlignment: pw.MainAxisAlignment.center,
-              children: [
-                pw.Text(
-                  "AED",
-                  style: pw.TextStyle(
-                    font: font,
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.Text(
-                  price,
-                  style: pw.TextStyle(
-                    font: font,
-                    fontSize: 11,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            if (isStrikeThrough)
-              pw.Positioned.fill(
-                child: pw.Transform.rotate(
-                  angle: 0.6,
-                  child: pw.Container(
-                    alignment: pw.Alignment.center,
-                    child: pw.Container(
-                      width: 250,
-                      height: 1.2,
-                      color: isRedColor.value ? PdfColors.red : PdfColors.black,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // from excel
   void pickExcelFile(BuildContext context) async {
     var width = context.width;
     var result = await parseExcelToAccessoryPromo();
@@ -746,7 +543,7 @@ class AccessoryLabelPromoController extends GetxController {
       return;
     } else {
       log("Data found");
-      var validData = result.validPromos;
+      var validData = result.validRows;
       var invalidData = result.invalidRows;
 
       // Determine message & actions
@@ -814,9 +611,11 @@ class AccessoryLabelPromoController extends GetxController {
         );
       } else {
         content = Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
                 "${validData.length} valid rows were successfully extracted from the Excel file."),
+            const SizedBox(height: 20),
             Text(
                 "However, we found ${invalidData.length} invalid rows with errors. Below are the invalid rows that require attention:"),
             const SizedBox(height: 20),
@@ -839,7 +638,6 @@ class AccessoryLabelPromoController extends GetxController {
           ),
         );
       }
-
       // Show dialog
       _showDialog(width, title, content, actions);
     }
@@ -848,14 +646,11 @@ class AccessoryLabelPromoController extends GetxController {
   void _showDialog(
       double width, String title, Widget content, List<Widget> actions) {
     Get.dialog(
-      SizedBox(
-        width: width,
-        child: AlertDialog(
-          title: Center(child: Text(title)),
-          content: content,
-          actions: actions,
-          actionsAlignment: MainAxisAlignment.spaceAround,
-        ),
+      AlertDialog(
+        title: Center(child: Text(title)),
+        content: content,
+        actions: actions,
+        actionsAlignment: MainAxisAlignment.spaceAround,
       ),
     );
   }
@@ -864,15 +659,14 @@ class AccessoryLabelPromoController extends GetxController {
     return Text(message);
   }
 
-  Widget _buildInvalidTable(List<InvalidPromo> invalidData) {
+  Widget _buildInvalidTable(List<InvalidRegular> invalidData) {
     return Column(
       children: [
         _rowWidget(
           row: "Row",
           brand: "Brand",
           barcode: "Barcode",
-          oldPrice: "Price",
-          discount: "Discount",
+          price: "Price",
           error: "Error!",
           isHead: true,
         ),
@@ -880,10 +674,35 @@ class AccessoryLabelPromoController extends GetxController {
               row: data.row.toString(),
               brand: data.brand,
               barcode: data.barcode,
-              discount: data.discount,
-              oldPrice: data.oldPrice,
+              price: data.price,
               error: data.error,
             ))
+      ],
+    );
+  }
+
+  Widget _buildValidTable(List<AccessoryRegular> validData) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _rowWidget(
+          row: "Sl No",
+          brand: "Brand",
+          barcode: "Barcode",
+          price: "Price",
+          isHead: true,
+        ),
+        ...validData.asMap().entries.map((entry) {
+          int index = entry.key + 1; // Start index from 1
+          var data = entry.value;
+
+          return _rowWidget(
+            row: index.toString(), // Display index
+            brand: data.brandName,
+            barcode: data.barcode,
+            price: data.price.toString(),
+          );
+        }),
       ],
     );
   }
@@ -892,9 +711,8 @@ class AccessoryLabelPromoController extends GetxController {
     required String row,
     required String brand,
     required String barcode,
-    required String oldPrice,
-    required String discount,
-    required String error,
+    required String price,
+    String? error,
     bool isHead = false,
   }) {
     var fontWeight = isHead ? FontWeight.bold : FontWeight.normal;
@@ -942,41 +760,31 @@ class AccessoryLabelPromoController extends GetxController {
             width: 80,
             alignment: Alignment.center,
             child: Text(
-              oldPrice,
+              price,
               style: TextStyle(
                 fontWeight: fontWeight,
                 fontSize: fontSize,
               ),
             ),
           ),
-          Container(
-            width: 80,
-            alignment: Alignment.center,
-            child: Text(
-              discount,
-              style: TextStyle(
-                fontWeight: fontWeight,
-                fontSize: fontSize,
+          if (error != null)
+            Container(
+              width: 150,
+              alignment: Alignment.center,
+              child: Text(
+                error,
+                style: TextStyle(
+                  fontWeight: fontWeight,
+                  fontSize: fontSize,
+                ),
               ),
             ),
-          ),
-          Container(
-            width: 150,
-            alignment: Alignment.center,
-            child: Text(
-              error,
-              style: TextStyle(
-                fontWeight: fontWeight,
-                fontSize: fontSize,
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Future<ExcelParseResultPromo> parseExcelToAccessoryPromo() async {
+  Future<ExcelParseResultRegular> parseExcelToAccessoryPromo() async {
     try {
       // Pick Excel file
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -989,10 +797,10 @@ class AccessoryLabelPromoController extends GetxController {
 
       if (result == null) {
         log("No file selected.");
-        return ExcelParseResultPromo(
+        return ExcelParseResultRegular(
             code: 400,
             msg: "No file selected.",
-            validPromos: [],
+            validRows: [],
             invalidRows: []);
       }
 
@@ -1000,10 +808,10 @@ class AccessoryLabelPromoController extends GetxController {
       Uint8List? bytes = result.files.first.bytes;
       if (bytes == null) {
         log("Error: Unable to read file bytes.");
-        return ExcelParseResultPromo(
+        return ExcelParseResultRegular(
             code: 400,
             msg: "Error: Unable to read file bytes.",
-            validPromos: [],
+            validRows: [],
             invalidRows: []);
       }
 
@@ -1011,16 +819,16 @@ class AccessoryLabelPromoController extends GetxController {
       final excel = Excel.decodeBytes(bytes);
       if (excel.tables.isEmpty) {
         log("Error: Excel file has no sheets.");
-        return ExcelParseResultPromo(
+        return ExcelParseResultRegular(
             code: 400,
             msg: "Error: Excel file has no sheets.",
-            validPromos: [],
+            validRows: [],
             invalidRows: []);
       }
 
       final sheet = excel.tables[excel.tables.keys.first]!;
-      List<AccessoryPromo> validPromos = [];
-      List<InvalidPromo> invalidRows = [];
+      List<AccessoryRegular> validRows = [];
+      List<InvalidRegular> invalidRows = [];
 
       int emptyRowCount = 0;
       int rowIndex = 2; // Start after header rows
@@ -1049,100 +857,66 @@ class AccessoryLabelPromoController extends GetxController {
           // Extract and sanitize cell values
           final brand = _getString(row[0]);
           final barcode = _getString(row[1]);
-          final oldPriceStr = _getString(row[2]);
-          final discountStr = _getString(row[3]);
+          final priceStr = _getString(row[2]);
 
           // Validate required fields
-          if (brand.isEmpty ||
-              barcode.isEmpty ||
-              oldPriceStr.isEmpty ||
-              discountStr.isEmpty) {
-            invalidRows.add(InvalidPromo(
+          if (brand.isEmpty || barcode.isEmpty || priceStr.isEmpty) {
+            invalidRows.add(InvalidRegular(
                 row: rowIndex,
                 brand: brand,
                 barcode: barcode,
-                oldPrice: oldPriceStr,
-                discount: discountStr,
+                price: priceStr,
                 error: "Missing required values"));
             continue;
           }
 
           // Validate numeric formats
-          final oldPrice = double.tryParse(oldPriceStr);
-          final discount = double.tryParse(discountStr);
+          final price = double.tryParse(priceStr);
 
-          if (oldPrice == null || discount == null) {
-            invalidRows.add(InvalidPromo(
+          if (price == null) {
+            invalidRows.add(InvalidRegular(
               row: rowIndex,
               brand: brand,
               barcode: barcode,
-              oldPrice: oldPriceStr,
-              discount: discountStr,
+              price: priceStr,
               error: "Invalid number format",
             ));
             continue;
           }
 
           // Create valid promo entry
-          validPromos.add(AccessoryPromo(
+          validRows.add(AccessoryRegular(
             brandName: brand,
             barcode: barcode,
-            oldPrice: oldPrice,
-            newPrice: oldPrice * (1 - discount / 100),
-            percentage: discount,
+            price: price,
           ));
         } catch (e) {
           log("Error processing row $rowIndex: $e");
-          invalidRows.add(InvalidPromo(
+          invalidRows.add(InvalidRegular(
             row: rowIndex,
             brand: '',
             barcode: '',
-            oldPrice: '',
-            discount: '',
+            price: '',
             error: "Unexpected error",
           ));
         }
       }
 
-      log("Parsing completed. Valid: ${validPromos.length}, Invalid: ${invalidRows.length}");
-      return ExcelParseResultPromo(
+      log("Parsing completed. Valid: ${validRows.length}, Invalid: ${invalidRows.length}");
+      return ExcelParseResultRegular(
         code: 200,
         msg: "Success!",
-        validPromos: validPromos,
+        validRows: validRows,
         invalidRows: invalidRows,
       );
     } catch (e) {
       log("Critical error: $e");
-      return ExcelParseResultPromo(
-          code: 400,
-          msg: "Critical error: $e",
-          validPromos: [],
-          invalidRows: []);
+      return ExcelParseResultRegular(
+          code: 400, msg: "Critical error: $e", validRows: [], invalidRows: []);
     }
   }
 
-  /// Extracts and cleans a string from a cell
   String _getString(Data? cell) {
     return cell?.value.toString().trim() ?? "";
-  }
-
-  void downloadTemplate() async {
-    String path = 'assets/samples/example_accessory_promo.xlsx';
-    ByteData data = await rootBundle.load(path);
-    var fileBytes = data.buffer.asUint8List();
-    await downloadPreforma(
-        fileBytes, "Accessory Label Promotion Preforma.xlsx");
-  }
-
-  Future<void> downloadPreforma(Uint8List pdfBytes, String name) async {
-    if (kIsWeb) {
-      final blob = html.Blob([pdfBytes], 'application/pdf');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      html.AnchorElement(href: url)
-        ..target = 'blank'
-        ..download = name
-        ..click();
-      html.Url.revokeObjectUrl(url);
-    }
   }
 }

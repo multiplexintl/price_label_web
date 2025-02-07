@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:price_label_web/models/accessory_promo.dart';
+import 'package:price_label_web/pages/main_page.dart';
 import '../controllers/accessory_label_promo_controller.dart';
+import '../widgets/diagonal_strike_paint.dart';
 
 class AccessoriesPromoView extends StatelessWidget {
   const AccessoriesPromoView({super.key});
@@ -12,7 +14,7 @@ class AccessoriesPromoView extends StatelessWidget {
     Get.put(AccessoryLabelPromoController());
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Accessory Label Promo"),
+        title: const Text("Accessory Label Promotion"),
         automaticallyImplyLeading: true,
       ),
       body: Padding(
@@ -75,51 +77,100 @@ class AccessoriesPromoView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      SizedBox(
-                        height: 30,
-                        width: 150,
-                        child: TextFormFieldWidget2(
-                          controller: con.brandNameController,
-                          title: "Brand",
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        SizedBox(
+                          height: 30,
+                          width: 150,
+                          child: Obx(() => TextFormFieldWidget2(
+                                controller: con.percentageController.value,
+                                title: "Discount Percentage",
+                                enabled: con.isEnabledPerc.value,
+                                enforced: true,
+                                formatter: FilteringTextInputFormatter.allow(
+                                  RegExp(r'^\d*\.?\d{0,2}$'),
+                                ),
+                              )),
                         ),
-                      ),
-                      SizedBox(
-                        height: 30,
-                        width: 170,
-                        child: TextFormFieldWidget2(
-                          controller: con.barcodeController,
-                          title: "Barcode",
-                        ),
-                      ),
-                      SizedBox(
-                        height: 30,
-                        width: 70,
-                        child: TextFormFieldWidget2(
-                          controller: con.oldPriceController,
-                          title: "Was Price",
-                          enforced: true,
-                          formatter: FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d{0,2}$'),
+                        SizedBox(
+                          height: 30,
+                          width: 150,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              con.pickExcelFile(Get.context!);
+                            },
+                            child: const Text("Upload"),
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        height: 30,
-                        width: 70,
-                        child: TextFormFieldWidget2(
-                          controller: con.newPriceController,
-                          title: "Now Price",
-                          enforced: true,
-                          formatter: FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d{0,2}$'),
+                        SizedBox(
+                          height: 30,
+                          width: 180,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              con.downloadTemplate();
+                            },
+                            child: const Text("Download Template"),
                           ),
-                        ),
-                      ),
-                    ],
+                        )
+                      ],
+                    ),
                   ),
+                  const SizedBox(height: 10),
+                  Obx(() => Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          SizedBox(
+                            height: 30,
+                            width: 150,
+                            child: TextFormFieldWidget2(
+                              controller: con.brandNameController.value,
+                              title: "Brand",
+                              enabled: con.isEnabled.value,
+                            ),
+                          ),
+                          SizedBox(
+                            height: 30,
+                            width: 170,
+                            child: TextFormFieldWidget2(
+                              controller: con.barcodeController.value,
+                              title: "Barcode",
+                              enabled: con.isEnabled.value,
+                              enforced: true,
+                              formatter: FilteringTextInputFormatter.allow(
+                                RegExp(r'^[a-zA-Z0-9]{0,13}$'),
+                              ),
+                              maxLength: 13,
+                            ),
+                          ),
+                          SizedBox(
+                            height: 30,
+                            width: 70,
+                            child: TextFormFieldWidget2(
+                              controller: con.oldPriceController.value,
+                              title: "Was Price",
+                              enabled: con.isEnabled.value,
+                              enforced: true,
+                              formatter: FilteringTextInputFormatter.allow(
+                                RegExp(r'^\d*\.?\d{0,2}$'),
+                              ),
+                              onChanged: con.onWasPriceChanged,
+                            ),
+                          ),
+                          SizedBox(
+                            height: 30,
+                            width: 70,
+                            child: TextFormFieldWidget2(
+                              controller: con.newPriceController.value,
+                              title: "Now Price",
+                              readOnly: true,
+                              enabled: con.isEnabled.value,
+                            ),
+                          ),
+                        ],
+                      )),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -139,7 +190,7 @@ class AccessoriesPromoView extends StatelessWidget {
                           )),
                       ElevatedButton(
                         onPressed: () async {
-                          await con.generatePdf(isDownload: true);
+                          con.downloadPDF(isDownload: true);
                         },
                         child: const Text("Export"),
                       ),
@@ -179,6 +230,9 @@ class AccessoriesPromoView extends StatelessWidget {
                         InkWell(
                           onTap: () {
                             con.clearAllData();
+                          },
+                          onDoubleTap: () {
+                            con.generateAccessoryPromoData();
                           },
                           child: Container(
                             height: 30,
@@ -347,7 +401,8 @@ class AccessoriesPromoView extends StatelessWidget {
                                             // Old Price
                                             Expanded(
                                               child: Text(
-                                                item.oldPrice.toString(),
+                                                item.oldPrice
+                                                    .toStringAsFixed(2),
                                                 style: const TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.bold,
@@ -357,7 +412,8 @@ class AccessoriesPromoView extends StatelessWidget {
                                             // New Price
                                             Expanded(
                                               child: Text(
-                                                item.newPrice.toString(),
+                                                item.newPrice
+                                                    .toStringAsFixed(2),
                                                 style: const TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.bold,
@@ -449,29 +505,98 @@ class AccessoriesPromoView extends StatelessWidget {
                       const Text("Red Color")
                     ],
                   ),
+                  const SizedBox(height: 10),
+                  // radio buttons for strike through modal
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("  Strike Through Options"),
+                      const SizedBox(height: 5),
+                      Obx(() => Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Radio<int>(
+                                    value: 1,
+                                    groupValue: con.selectedRadio.value,
+                                    onChanged: (value) {
+                                      con.selectedRadio.value = value!;
+                                    },
+                                  ),
+                                  const Text("Diagonal"),
+                                ],
+                              ),
+                              const SizedBox(
+                                  width: 20), // Space between buttons
+                              Row(
+                                children: [
+                                  Radio<int>(
+                                    value: 2,
+                                    groupValue: con.selectedRadio.value,
+                                    onChanged: (value) {
+                                      con.selectedRadio.value = value!;
+                                    },
+                                  ),
+                                  const Text("Horizontal"),
+                                ],
+                              ),
+                            ],
+                          )),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Text("Text: "),
+                      const SizedBox(
+                        width: 90,
+                        child: Text("VAT Text: "),
+                      ),
                       SizedBox(
-                        height: 50,
+                        height: 30,
                         width: 250,
-                        child: TextFormField(
-                          onChanged: con.updateText,
-                          initialValue: con.smallText.value,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: Colors.black),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: Colors.blue),
-                            ),
-                            fillColor: Colors.white,
-                            filled: true,
-                          ),
+                        child: TextFormFieldWidget2(
+                          title: "VAT Text",
+                          controller: con.vatTextController.value,
+                          enforced: false,
+                          enabled: true,
+                          readOnly: false,
                         ),
-                      )
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          con.vatTextController.value.text =
+                              "* All prices are inclusive of VAT";
+                        },
+                        child: const Text("Default"),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const SizedBox(
+                        width: 90,
+                        child: Text("Optional Text: "),
+                      ),
+                      SizedBox(
+                        height: 30,
+                        width: 250,
+                        child: TextFormFieldWidget2(
+                          title: "Optional Text",
+                          controller: con.optionalTextController.value,
+                          enforced: false,
+                          enabled: true,
+                          readOnly: false,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          con.optionalTextController.value.clear();
+                        },
+                        child: const Text("Clear"),
+                      ),
                     ],
                   ),
                 ],
@@ -484,147 +609,53 @@ class AccessoriesPromoView extends StatelessWidget {
   }
 
   Widget _buildPreviewSection() {
-    var con = Get.find<AccessoryLabelPromoController>();
+    final con = Get.find<AccessoryLabelPromoController>();
+    const itemsPerPage = 18;
 
     return GetBuilder<AccessoryLabelPromoController>(
       builder: (controller) {
-        const itemsPerPage = 18; // Number of items per page
-
         if (controller.data.isEmpty) {
           return Container(
-            color: Colors.white,
-            width: 794, // A4 width in pixels
-            height: 1123, // A4 height in pixels
+            width: 794,
+            height: 1123,
             alignment: Alignment.center,
-            child: const Text(
-              "No items found",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
+            child: const Text("No items found"),
           );
         }
 
-        // Calculate total pages dynamically
         final totalPages = (controller.data.length / itemsPerPage).ceil();
-        controller.totalPages.value = totalPages;
-
-        // Dynamically adjust the repaintKeys list to match the number of pages
-        while (controller.repaintKeys.length < totalPages) {
-          controller.repaintKeys.add(GlobalKey());
-        }
-
-        while (controller.repaintKeys.length > totalPages) {
-          controller.repaintKeys.removeLast();
-        }
-
-        // Scroll Controller
-        final ScrollController scrollController = ScrollController();
-
-        // Listen to Scroll Events
-        scrollController.addListener(() {
-          final scrollOffset =
-              scrollController.offset; // Current scroll position
-          const pageHeight = 1123.0; // Fixed height of each A4 page
-          final currentPage = (scrollOffset / pageHeight).floor() + 1;
-
-          if (controller.currentPage.value != currentPage) {
-            controller.currentPage.value = currentPage.clamp(1, totalPages);
-          }
-        });
-
-        // Generate content for all pages
-        List<Widget> allPages = [];
-        for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-          // Calculate data for each page
-          final startIndex = pageIndex * itemsPerPage;
-          final endIndex = (startIndex + itemsPerPage > controller.data.length)
-              ? controller.data.length
-              : startIndex + itemsPerPage;
-          final pageData = controller.data.sublist(startIndex, endIndex);
-
-          allPages.add(
-            RepaintBoundary(
-              key: controller.repaintKeys[pageIndex],
-              child: Container(
-                color: Colors.white,
-                width: 794, // A4 width in pixels
-                height: 1123, // A4 height in pixels
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                margin: const EdgeInsets.only(
-                    bottom: 10), // Add spacing between pages
-                alignment: Alignment.topCenter,
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 25,
-                    childAspectRatio: 226.77 / 151.18,
-                  ),
-                  itemCount: pageData.length,
-                  itemBuilder: (context, index) {
-                    final item = pageData[index];
-                    return Obx(() => AccessoriesPromoWidget(
-                          promo: item,
-                          vatText: con.smallText.value,
-                          isRed: con.isRedColor.value,
-                        ));
-                  },
-                ),
-              ),
-            ),
-          );
-        }
+        final scrollController = ScrollController();
 
         return Column(
           children: [
-            // Header Section
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Obx(() => Text(
-                        "Page ${controller.currentPage.value} of ${controller.totalPages.value}",
+                        "Page ${controller.currentPage.value} of $totalPages",
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       )),
                   Row(
                     children: [
                       ElevatedButton(
-                        onPressed: () {
-                          if (controller.currentPage.value > 1) {
-                            controller.currentPage.value--;
-                            scrollController.animateTo(
-                              (controller.currentPage.value - 1) * 1123.0,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
+                        onPressed: () => controller.currentPage.value > 1
+                            ? controller.currentPage.value--
+                            : null,
                         child: const Text("Previous"),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton(
-                        onPressed: () {
-                          if (controller.currentPage.value < totalPages) {
-                            controller.currentPage.value++;
-                            scrollController.animateTo(
-                              (controller.currentPage.value - 1) * 1123.0,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
+                        onPressed: () =>
+                            controller.currentPage.value < totalPages
+                                ? controller.currentPage.value++
+                                : null,
                         child: const Text("Next"),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton(
-                        onPressed: con.generatePdf,
+                        onPressed: () => con.downloadPDF(isDownload: false),
                         child: const Text("Print"),
                       ),
                     ],
@@ -632,14 +663,47 @@ class AccessoriesPromoView extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-
-            // Continuous Scrolling Section
             Expanded(
               child: SingleChildScrollView(
                 controller: scrollController,
                 child: Column(
-                  children: allPages,
+                  children: [
+                    for (int pageIndex = 0; pageIndex < totalPages; pageIndex++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: Container(
+                          width: 794,
+                          height: 1123,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 40, vertical: 20),
+                          color: Colors.white,
+                          child: Obx(() => GridView(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 25,
+                                  childAspectRatio: 226.77 / 151.18,
+                                ),
+                                children: [
+                                  for (int i = 0; i < itemsPerPage; i++)
+                                    if (pageIndex * itemsPerPage + i <
+                                        controller.data.length)
+                                      AccessoriesPromoWidget(
+                                        con: con,
+                                        promo: controller
+                                            .data[pageIndex * itemsPerPage + i],
+                                        isRed: con.isRedColor.value,
+                                      )
+                                    else
+                                      const SizedBox.shrink(),
+                                ],
+                              )),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -650,9 +714,348 @@ class AccessoriesPromoView extends StatelessWidget {
   }
 }
 
+class AccessoriesPromoWidget extends StatelessWidget {
+  final AccessoryPromo promo;
+  final String? vatText;
+  final bool? isRed;
+  final AccessoryLabelPromoController con;
+  const AccessoriesPromoWidget({
+    super.key,
+    required this.promo,
+    this.vatText,
+    this.isRed = false,
+    required this.con,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 151.18,
+      width: 226.77,
+      // 226.77 / 188.98,
+      decoration: BoxDecoration(
+        // color: Colors.amber,
+        border: Border.all(
+          color: isRed == true ? Colors.red : Colors.black,
+          width: 2,
+        ),
+      ),
+      child: Column(
+        children: [
+          // heading
+          Container(
+            width: 227,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+                border: Border(
+                    bottom: BorderSide(
+              color: isRed == true ? Colors.red : Colors.black,
+              width: 2,
+            ))),
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  Container(
+                    width: 113.38,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      border: Border(
+                        right: BorderSide(
+                          color: isRed == true ? Colors.red : Colors.black,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: const Text(
+                      "ITEM",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontFamily: 'Myriad Pro',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 56.69,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      // color: Colors.blue,
+                      border: Border(
+                        right: BorderSide(
+                          color: isRed == true ? Colors.red : Colors.black,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: const Text(
+                      "WAS",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontFamily: 'Myriad Pro',
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 56.69,
+                    height: 50,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                        // color: Colors.blue,
+                        ),
+                    child: const Text(
+                      "NOW",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontFamily: 'Myriad Pro',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // items
+          Container(
+            height: 65,
+            decoration: const BoxDecoration(color: Colors.transparent),
+            child: Row(
+              children: [
+                // barcode
+                Container(
+                  width: 113.60,
+                  decoration: BoxDecoration(
+                    // color: Colors.green,
+                    border: Border(
+                      right: BorderSide(
+                        color: isRed == true ? Colors.red : Colors.black,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        promo.brandName.toUpperCase(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'Myriad Pro',
+                          fontWeight: FontWeight.w900,
+                          height: 0.8,
+                        ),
+                      ),
+                      Text(
+                        promo.barcode.toUpperCase(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'Myriad Pro',
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // was
+                Container(
+                  width: 56.9,
+                  decoration: BoxDecoration(
+                    // color: Colors.green,
+                    border: Border(
+                      right: BorderSide(
+                        color: isRed == true ? Colors.red : Colors.black,
+                        width: 1,
+                      ),
+                      bottom: BorderSide(
+                        color: isRed == true ? Colors.red : Colors.black,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      IntrinsicHeight(
+                        child: Obx(
+                          () => Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                "AED",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontFamily: 'Myriad Pro',
+                                  fontWeight: FontWeight.w900,
+                                  height: 0.8,
+                                ),
+                              ),
+                              Text(
+                                promo.oldPrice.toStringAsFixed(2),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontFamily: 'Myriad Pro',
+                                  fontWeight: FontWeight.w900,
+                                  decoration: con.selectedRadio.value == 2
+                                      ? TextDecoration.lineThrough
+                                      : TextDecoration.none,
+                                  decorationStyle: TextDecorationStyle.solid,
+                                  decorationThickness: 3,
+                                  decorationColor:
+                                      isRed == true ? Colors.red : Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Obx(() => Visibility(
+                            visible: con.selectedRadio.value == 1,
+                            child: Positioned.fill(
+                              child: CustomPaint(
+                                painter: DiagonalStrikeThroughPainter(
+                                  color:
+                                      isRed == true ? Colors.red : Colors.black,
+                                  strokeWidth: 2,
+                                  horizontalPadding: 0,
+                                  verticalPadding: 0,
+                                ),
+                              ),
+                            ),
+                          )),
+                    ],
+                  ),
+                ),
+                // now
+                Container(
+                  width: 56.5,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: isRed == true ? Colors.red : Colors.black,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        "AED",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontFamily: 'Myriad Pro',
+                          fontWeight: FontWeight.w900,
+                          height: 0.8,
+                        ),
+                      ),
+                      Text(
+                        promo.newPrice.toStringAsFixed(2),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'Myriad Pro',
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // precentage space
+          Container(
+            height: 35,
+            decoration: const BoxDecoration(color: Colors.transparent),
+            child: Row(
+              children: [
+                // empty container
+                Container(
+                  width: 113.60,
+                  decoration: BoxDecoration(
+                    // color: Colors.green,
+                    border: Border(
+                      right: BorderSide(
+                        color: isRed == true ? Colors.red : Colors.black,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                ),
+                // percentage
+                Container(
+                  width: 113.4,
+                  alignment: Alignment.center,
+                  child: Text(
+                    "${promo.percentage}% OFF",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'Myriad Pro',
+                      fontWeight: FontWeight.w900,
+                      decorationColor: Colors.black,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // text
+          Container(
+            height: 15,
+            decoration: BoxDecoration(
+              // color: Colors.amber,
+              border: Border(
+                top: BorderSide(
+                  color: isRed == true ? Colors.red : Colors.black,
+                  width: 1,
+                ),
+              ),
+            ),
+            padding: const EdgeInsets.only(right: 10, top: 5, left: 10),
+            child: Obx(() => Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      con.optionalTextController.value.text,
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontFamily: 'Myriad Pro',
+                        color: isRed == true ? Colors.red : Colors.black,
+                      ),
+                    ),
+                    Text(
+                      con.vatTextController.value.text,
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontFamily: 'Myriad Pro',
+                        color: isRed == true ? Colors.red : Colors.black,
+                      ),
+                    ),
+                  ],
+                )),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class TextFormFieldWidget2 extends StatelessWidget {
   final String title;
   final bool enforced;
+  final int? maxLength;
   final String? Function(String?)? validator;
   final void Function(String?)? onSaved;
   final void Function(String)? onChanged;
@@ -672,6 +1075,7 @@ class TextFormFieldWidget2 extends StatelessWidget {
     this.controller,
     this.enabled = true,
     this.readOnly = false,
+    this.maxLength,
   });
 
   @override
@@ -687,7 +1091,7 @@ class TextFormFieldWidget2 extends StatelessWidget {
       inputFormatters: [
         formatter ?? FilteringTextInputFormatter.singleLineFormatter,
         LengthLimitingTextInputFormatter(
-          7, // Set max length for the input
+          maxLength ?? 7, // Set max length for the input
           maxLengthEnforcement: enforced
               ? MaxLengthEnforcement.enforced
               : MaxLengthEnforcement.none,
@@ -713,327 +1117,6 @@ class TextFormFieldWidget2 extends StatelessWidget {
         ),
         fillColor: Colors.white,
         filled: true,
-      ),
-    );
-  }
-}
-
-class AccessoriesPromoWidget extends StatelessWidget {
-  final AccessoryPromo promo;
-  final String? vatText;
-  final bool? isRed;
-  const AccessoriesPromoWidget({
-    super.key,
-    required this.promo,
-    this.vatText,
-    this.isRed = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 151.18,
-      width: 226.77,
-      // 226.77 / 188.98,
-      decoration: BoxDecoration(
-        // color: Colors.amber,
-        border: Border.all(
-          color: isRed == true ? Colors.red : Colors.black,
-          width: 2,
-        ),
-      ),
-      child: Column(
-        children: [
-          // heading
-          Container(
-            width: 227,
-            height: 30,
-            decoration: BoxDecoration(
-                // color: Colors.amber,
-                border: Border(
-                    bottom: BorderSide(
-              color: isRed == true ? Colors.red : Colors.black,
-              width: 2,
-            ))),
-            child: IntrinsicHeight(
-              child: Row(
-                children: [
-                  Container(
-                    width: 113.38,
-                    height: 30,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                        // color: Colors.blue,
-                        border: Border(
-                            right: BorderSide(
-                      color: isRed == true ? Colors.red : Colors.black,
-                      width: 1,
-                    ))),
-                    child: Text(
-                      promo.brandName.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontFamily: 'Myriad Pro',
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 56.69,
-                    height: 30,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      // color: Colors.blue,
-                      border: Border(
-                        right: BorderSide(
-                          color: isRed == true ? Colors.red : Colors.black,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: const Text(
-                      "WAS",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontFamily: 'Myriad Pro',
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 56.69,
-                    height: 50,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                        // color: Colors.blue,
-                        ),
-                    child: const Text(
-                      "NOW",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontFamily: 'Myriad Pro',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // items
-          Row(
-            children: [
-              // barcode
-              Container(
-                width: 113.60,
-                height: 100,
-                decoration: BoxDecoration(
-                  // color: Colors.green,
-                  border: Border(
-                    right: BorderSide(
-                      color: isRed == true ? Colors.red : Colors.black,
-                      width: 1,
-                    ),
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  promo.barcode.toUpperCase(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontFamily: 'Myriad Pro',
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              // was
-              Container(
-                width: 56.9,
-                height: 100,
-                decoration: BoxDecoration(
-                  // color: Colors.green,
-                  border: Border(
-                    right: BorderSide(
-                      color: isRed == true ? Colors.red : Colors.black,
-                      width: 1,
-                    ),
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  promo.oldPrice.toStringAsFixed(2),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontFamily: 'Myriad Pro',
-                    fontWeight: FontWeight.w900,
-                    decoration: TextDecoration.lineThrough,
-                    decorationStyle: TextDecorationStyle.solid,
-                    decorationThickness: 2,
-                    decorationColor: isRed == true ? Colors.red : Colors.black,
-                  ),
-                ),
-              ),
-              // now
-
-              Container(
-                width: 55,
-                height: 100,
-                alignment: Alignment.center,
-                child: Text(
-                  promo.oldPrice.toStringAsFixed(2),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontFamily: 'Myriad Pro',
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // text
-          Container(
-            height: 15,
-            decoration: BoxDecoration(
-              // color: Colors.amber,
-              border: Border(
-                top: BorderSide(
-                  color: isRed == true ? Colors.red : Colors.black,
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "* All prices are in AED",
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontFamily: 'Myriad Pro',
-                      color: isRed == true ? Colors.red : Colors.black,
-                    ),
-                  ),
-                  Text(
-                    vatText ?? "* All Prices Inclusive of VAT",
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontFamily: 'Myriad Pro',
-                      color: isRed == true ? Colors.red : Colors.black,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Row(
-          //   children: [
-          //     // description
-          //     Container(
-          //       width: 113.38,
-          //       height: 151.18,
-          //       decoration: BoxDecoration(
-          //         // color: Colors.red,
-          //         border: Border(
-          //           right: BorderSide(
-          //             color: isRed == true ? Colors.red : Colors.black,
-          //             width: 1,
-          //           ),
-          //         ),
-          //       ),
-          //       child: Text(
-          //         promo.brandName,
-          // textAlign: TextAlign.center,
-          // style: const TextStyle(
-          //   fontSize: 12,
-          //   fontFamily: 'Myriad Pro',
-          // ),
-          //       ),
-          //     ),
-          //     // was
-          //     Container(
-          //         width: 56.69,
-          //         height: 167,
-          //         decoration: BoxDecoration(
-          //           // color: Colors.red,
-          //           border: Border(
-          //             right: BorderSide(
-          //               color: isRed == true ? Colors.red : Colors.black,
-          //               width: 1,
-          //             ),
-          //           ),
-          //         ),
-          //         child: Text(
-          //           promo.oldPrice.toStringAsFixed(2),
-          //           textAlign: TextAlign.center,
-          //           style: TextStyle(
-          //             fontSize: 12,
-          //             fontFamily: 'Myriad Pro',
-          // decoration: TextDecoration.lineThrough,
-          // decorationStyle: TextDecorationStyle.solid,
-          // decorationThickness: 2,
-          // decorationColor:
-          //     isRed == true ? Colors.red : Colors.black,
-          //           ),
-          //         )),
-
-          //     // Now Price Container
-          //     Container(
-          //       width: 56.69,
-          //       height: 151.18,
-          //       alignment: Alignment.center,
-          //       child: Text(
-          //         promo.newPrice.toStringAsFixed(2),
-          //         textAlign: TextAlign.center,
-          //         style: const TextStyle(
-          //           fontSize: 12,
-          //           fontFamily: 'Myriad Pro',
-          //         ),
-          //       ),
-          //     ),
-          //   ],
-          // ),
-          // const Spacer(),
-          // Container(
-          //   height: 19,
-          //   width: 226.77,
-          //   alignment: Alignment.centerRight,
-          //   padding: const EdgeInsets.only(right: 10, left: 5),
-          //   decoration: BoxDecoration(
-          //       color: Colors.transparent,
-          //       border: Border(
-          //         top: BorderSide(
-          //           color: isRed == true ? Colors.red : Colors.black,
-          //           width: 1,
-          //         ),
-          //       )),
-          // child: Row(
-          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          //   children: [
-          //     Text(
-          //       "* All prices are in AED",
-          //       style: TextStyle(
-          //         fontSize: 10,
-          //         fontFamily: 'Myriad Pro',
-          //         color: isRed == true ? Colors.red : Colors.black,
-          //       ),
-          //     ),
-          //     Text(
-          //       vatText ?? "* All Prices Inclusive of VAT",
-          //       style: TextStyle(
-          //         fontSize: 10,
-          //         fontFamily: 'Myriad Pro',
-          //         color: isRed == true ? Colors.red : Colors.black,
-          //       ),
-          //     ),
-          //   ],
-          // ),
-          // )
-        ],
       ),
     );
   }

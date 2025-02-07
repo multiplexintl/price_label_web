@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:price_label_web/pages/accessories_promo.dart';
 import 'package:price_label_web/pages/main_page.dart';
-import 'package:price_label_web/pages/price_label_non_promo.dart';
-import 'package:price_label_web/pages/price_label_promo.dart';
+import 'package:price_label_web/pages/cosmetics_label_regular.dart';
+import 'package:price_label_web/pages/cosmetics_label_promo.dart';
 import 'package:price_label_web/pages/price_tag_exquisite.dart';
 import 'package:price_label_web/pages/splash_screen.dart';
 import 'package:price_label_web/pages/test.dart';
 
-import 'pages/accessories_no_promo.dart';
+import 'pages/accessories_regular.dart';
 
 class RouteGenerator {
   static var list = [
@@ -61,13 +61,13 @@ class RouteGenerator {
       curve: Curves.easeIn,
       transitionDuration: const Duration(seconds: 1),
     ),
-    GetPage(
-      name: RouteLinks.test,
-      page: () => const PriceLabelPromoViewTest(),
-      transition: Transition.cupertino,
-      curve: Curves.easeIn,
-      transitionDuration: const Duration(seconds: 1),
-    ),
+    // GetPage(
+    //   name: RouteLinks.test,
+    //   page: () => const PriceLabelPromoViewTest(),
+    //   transition: Transition.cupertino,
+    //   curve: Curves.easeIn,
+    //   transitionDuration: const Duration(seconds: 1),
+    // ),
   ];
 }
 

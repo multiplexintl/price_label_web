@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:price_label_web/controllers/settings_controller.dart';
 
 import 'routes.dart';
 
@@ -10,10 +11,11 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  @override
+  @override 
   Widget build(BuildContext context) {
     return GetMaterialApp(
       builder: (context, child) {
+        Get.put(SettingsController());
         return child!;
       },
       title: 'Price Label',

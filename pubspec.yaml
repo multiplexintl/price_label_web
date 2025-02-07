@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.3+9
 
 environment:
   sdk: ^3.5.3
@@ -29,9 +29,12 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   cupertino_icons: ^1.0.8
+  excel: ^4.0.6
+  file_picker: ^8.3.1
   flex_color_picker: ^3.6.0
   flutter:
     sdk: flutter
+  flutter_image_compress: ^2.4.0
   flutter_to_pdf: ^0.2.2
   get: ^4.6.6
   htmltopdfwidgets: ^1.0.9
@@ -50,25 +53,21 @@ dev_dependencies:
 # following page: https://dart.dev/tools/pub/pubspec
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
   # To add assets to your application, add an assets section, like this:
+  assets:
+    - assets/samples/
   fonts:
-    - family: Alesend
-      fonts:
-        - asset: assets/fonts/Alesand Extra Bold.otf
-    - family: Habanera
-      fonts:
-        - asset: assets/fonts/Habanera Rounded ExtraBold.otf
-    - family: Avenir
-      fonts:
-        - asset: assets/fonts/Avenir Black.ttf
     - family: Myriad Pro
       fonts:
         - asset: assets/fonts/MyriadPro-Bold.ttf
+    - family: Times New Roman
+      fonts:
+        - asset: assets/fonts/Times New Roman Bold.ttf
+        
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
   # For details regarding adding assets from package dependencies, see

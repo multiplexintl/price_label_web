@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import '../controllers/accessory_label_no_promo_controller.dart';
-import '../models/accessory_no_promo.dart';
+import 'package:price_label_web/models/accessory_regular.dart';
+import '../controllers/accessory_label_regular_controller.dart';
 
 class AccessoriesNoPromoView extends StatelessWidget {
   const AccessoriesNoPromoView({super.key});
@@ -12,7 +12,7 @@ class AccessoriesNoPromoView extends StatelessWidget {
     Get.put(AccessoryLabelNoPromoController());
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Accessory Label No Promotion"),
+        title: const Text("Accessory Label Regular"),
         automaticallyImplyLeading: true,
       ),
       body: Padding(
@@ -72,6 +72,31 @@ class AccessoriesNoPromoView extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      SizedBox(
+                        height: 30,
+                        width: 150,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            con.pickExcelFile(Get.context!);
+                          },
+                          child: const Text("Upload"),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 30,
+                        width: 180,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            con.downloadTemplate();
+                          },
+                          child: const Text("Download Template"),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -125,7 +150,7 @@ class AccessoriesNoPromoView extends StatelessWidget {
                           )),
                       ElevatedButton(
                         onPressed: () async {
-                          await con.generatePdf(isDownload: true);
+                          con.downloadPDF(isDownload: true);
                         },
                         child: const Text("Export"),
                       ),
@@ -164,7 +189,10 @@ class AccessoriesNoPromoView extends StatelessWidget {
                         ),
                         InkWell(
                           onTap: () {
-                               con.clearAllData();
+                            con.clearAllData();
+                          },
+                          onDoubleTap: () {
+                            con.generateAccessoryNoPromoData();
                           },
                           child: Container(
                             height: 30,
@@ -321,7 +349,7 @@ class AccessoriesNoPromoView extends StatelessWidget {
                                             // Old Price
                                             Expanded(
                                               child: Text(
-                                                item.price.toString(),
+                                                item.price.toStringAsFixed(2),
                                                 style: const TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.bold,
@@ -401,42 +429,70 @@ class AccessoriesNoPromoView extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // Row(
+                  //   children: [
+                  //     Obx(
+                  //       () => Checkbox.adaptive(
+                  //         value: con.isRedColor.value,
+                  //         onChanged: (val) {
+                  //           con.isRedColor.toggle();
+                  //         },
+                  //       ),
+                  //     ),
+                  //     const Text("Red Color")
+                  //   ],
+                  // ),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
-                      Obx(
-                        () => Checkbox.adaptive(
-                          value: con.isRedColor.value,
-                          onChanged: (val) {
-                            con.isRedColor.toggle();
-                          },
+                      const SizedBox(
+                        width: 90,
+                        child: Text("VAT Text: "),
+                      ),
+                      SizedBox(
+                        height: 30,
+                        width: 250,
+                        child: TextFormFieldWidget2(
+                          title: "VAT Text",
+                          controller: con.vatTextController.value,
+                          enforced: false,
+                          enabled: true,
+                          readOnly: false,
                         ),
                       ),
-                      const Text("Red Color")
+                      TextButton(
+                        onPressed: () {
+                          con.vatTextController.value.text =
+                              "* All prices are inclusive of VAT";
+                        },
+                        child: const Text("Default"),
+                      ),
                     ],
                   ),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Text("Text: "),
+                      const SizedBox(
+                        width: 90,
+                        child: Text("Optional Text: "),
+                      ),
                       SizedBox(
-                        height: 50,
+                        height: 30,
                         width: 250,
-                        child: TextFormField(
-                          onChanged: con.updateText,
-                          initialValue: con.smallText.value,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: Colors.black),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: Colors.blue),
-                            ),
-                            fillColor: Colors.white,
-                            filled: true,
-                          ),
+                        child: TextFormFieldWidget2(
+                          title: "Optional Text",
+                          controller: con.optionalTextController.value,
+                          enforced: false,
+                          enabled: true,
+                          readOnly: false,
                         ),
-                      )
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          con.optionalTextController.value.clear();
+                        },
+                        child: const Text("Clear"),
+                      ),
                     ],
                   ),
                 ],
@@ -449,147 +505,55 @@ class AccessoriesNoPromoView extends StatelessWidget {
   }
 
   Widget _buildPreviewSection() {
-    var con = Get.find<AccessoryLabelNoPromoController>();
+    final con = Get.find<AccessoryLabelNoPromoController>();
+    const itemsPerPage = 18;
 
     return GetBuilder<AccessoryLabelNoPromoController>(
       builder: (controller) {
-        const itemsPerPage = 18; // Number of items per page
-
         if (controller.data.isEmpty) {
           return Container(
-            color: Colors.white,
-            width: 794, // A4 width in pixels
-            height: 1123, // A4 height in pixels
+            width: 794,
+            height: 1123,
             alignment: Alignment.center,
-            child: const Text(
-              "No items found",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
+            child: const Text("No items found"),
           );
         }
 
-        // Calculate total pages dynamically
         final totalPages = (controller.data.length / itemsPerPage).ceil();
-        controller.totalPages.value = totalPages;
-
-        // Dynamically adjust the repaintKeys list to match the number of pages
-        while (controller.repaintKeys.length < totalPages) {
-          controller.repaintKeys.add(GlobalKey());
-        }
-
-        while (controller.repaintKeys.length > totalPages) {
-          controller.repaintKeys.removeLast();
-        }
-
-        // Scroll Controller
-        final ScrollController scrollController = ScrollController();
-
-        // Listen to Scroll Events
-        scrollController.addListener(() {
-          final scrollOffset =
-              scrollController.offset; // Current scroll position
-          const pageHeight = 1123.0; // Fixed height of each A4 page
-          final currentPage = (scrollOffset / pageHeight).floor() + 1;
-
-          if (controller.currentPage.value != currentPage) {
-            controller.currentPage.value = currentPage.clamp(1, totalPages);
-          }
-        });
-
-        // Generate content for all pages
-        List<Widget> allPages = [];
-        for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-          // Calculate data for each page
-          final startIndex = pageIndex * itemsPerPage;
-          final endIndex = (startIndex + itemsPerPage > controller.data.length)
-              ? controller.data.length
-              : startIndex + itemsPerPage;
-          final pageData = controller.data.sublist(startIndex, endIndex);
-
-          allPages.add(
-            RepaintBoundary(
-              key: controller.repaintKeys[pageIndex],
-              child: Container(
-                color: Colors.white,
-                width: 794, // A4 width in pixels
-                height: 1123, // A4 height in pixels
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                margin: const EdgeInsets.only(
-                    bottom: 10), // Add spacing between pages
-                alignment: Alignment.topCenter,
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 25,
-                    childAspectRatio: 226.77 / 151.18,
-                  ),
-                  itemCount: pageData.length,
-                  itemBuilder: (context, index) {
-                    final item = pageData[index];
-                    return Obx(() => AccessoriesPromoWidget(
-                          promo: item,
-                          vatText: con.smallText.value,
-                          isRed: con.isRedColor.value,
-                        ));
-                  },
-                ),
-              ),
-            ),
-          );
-        }
+        final scrollController = ScrollController();
 
         return Column(
           children: [
-            // Header Section
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Obx(() => Text(
-                        "Page ${controller.currentPage.value} of ${controller.totalPages.value}",
+                        "Page ${controller.currentPage.value} of $totalPages",
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       )),
                   Row(
                     children: [
                       ElevatedButton(
-                        onPressed: () {
-                          if (controller.currentPage.value > 1) {
-                            controller.currentPage.value--;
-                            scrollController.animateTo(
-                              (controller.currentPage.value - 1) * 1123.0,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
+                        onPressed: () => controller.currentPage.value > 1
+                            ? controller.currentPage.value--
+                            : null,
                         child: const Text("Previous"),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton(
-                        onPressed: () {
-                          if (controller.currentPage.value < totalPages) {
-                            controller.currentPage.value++;
-                            scrollController.animateTo(
-                              (controller.currentPage.value - 1) * 1123.0,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
+                        onPressed: () =>
+                            controller.currentPage.value < totalPages
+                                ? controller.currentPage.value++
+                                : null,
                         child: const Text("Next"),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton(
-                        onPressed: con.generatePdf,
+                        onPressed: () {
+                          con.downloadPDF(isDownload: false);
+                        },
                         child: const Text("Print"),
                       ),
                     ],
@@ -597,20 +561,253 @@ class AccessoriesNoPromoView extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-
-            // Continuous Scrolling Section
             Expanded(
               child: SingleChildScrollView(
                 controller: scrollController,
                 child: Column(
-                  children: allPages,
+                  children: [
+                    for (int pageIndex = 0; pageIndex < totalPages; pageIndex++)
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Container(
+                          width: 794,
+                          height: 1123,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 40, vertical: 20),
+                          color: Colors.white,
+                          child: Obx(() => GridView(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 25,
+                                  childAspectRatio: 226.77 / 151.18,
+                                ),
+                                children: [
+                                  for (int i = 0; i < itemsPerPage; i++)
+                                    if (pageIndex * itemsPerPage + i <
+                                        controller.data.length)
+                                      AccessoriesPromoWidget(
+                                        promo: controller
+                                            .data[pageIndex * itemsPerPage + i],
+                                        con: con,
+                                        // vatText: con.smallText.value,
+                                        // isRed: con.isRedColor.value,
+                                      )
+                                    else
+                                      const SizedBox.shrink(),
+                                ],
+                              )),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+class AccessoriesPromoWidget extends StatelessWidget {
+  final AccessoryLabelNoPromoController con;
+  final AccessoryRegular promo;
+  final String? vatText;
+  final bool? isRed;
+  const AccessoriesPromoWidget({
+    super.key,
+    required this.promo,
+    this.vatText,
+    this.isRed = false,
+    required this.con,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 151.18,
+      width: 226.77,
+      // 226.77 / 188.98,
+      decoration: BoxDecoration(
+        // color: Colors.amber,
+        border: Border.all(
+          color: isRed == true ? Colors.red : Colors.black,
+          width: 2,
+        ),
+      ),
+      child: Column(
+        children: [
+          // heading
+          Container(
+            width: 227,
+            height: 30,
+            decoration: BoxDecoration(
+                // color: Colors.amber,
+                border: Border(
+                    bottom: BorderSide(
+              color: isRed == true ? Colors.red : Colors.black,
+              width: 2,
+            ))),
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  Container(
+                    width: 160,
+                    height: 50,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                        // color: Colors.blue,
+                        border: Border(
+                            right: BorderSide(
+                      color: isRed == true ? Colors.red : Colors.black,
+                      width: 1,
+                    ))),
+                    child: const Text(
+                      "ITEM",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontFamily: 'Myriad Pro',
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 65.69,
+                    height: 50,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                        // color: Colors.blue,
+                        ),
+                    child: const Text(
+                      "PRICE",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontFamily: 'Myriad Pro',
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // items
+          Row(
+            children: [
+              // brand
+              Container(
+                width: 160.07,
+                height: 105,
+                decoration: BoxDecoration(
+                  // color: Colors.green,
+                  border: Border(
+                    right: BorderSide(
+                      color: isRed == true ? Colors.red : Colors.black,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      promo.brandName.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontFamily: 'Myriad Pro',
+                        fontWeight: FontWeight.w900,
+                        height: 0.8,
+                      ),
+                    ),
+                    Text(
+                      promo.barcode.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontFamily: 'Myriad Pro',
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // price
+              Container(
+                width: 65,
+                height: 105,
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "AED",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontFamily: 'Myriad Pro',
+                        fontWeight: FontWeight.w900,
+                        height: 0.8,
+                      ),
+                    ),
+                    Text(
+                      promo.price.toStringAsFixed(2),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontFamily: 'Myriad Pro',
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // text
+          Container(
+            height: 15,
+            decoration: BoxDecoration(
+              // color: Colors.amber,
+              border: Border(
+                top: BorderSide(
+                  color: isRed == true ? Colors.red : Colors.black,
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    con.optionalTextController.value.text,
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontFamily: 'Myriad Pro',
+                      color: isRed == true ? Colors.red : Colors.black,
+                    ),
+                  ),
+                  Text(
+                    con.vatTextController.value.text,
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontFamily: 'Myriad Pro',
+                      color: isRed == true ? Colors.red : Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -678,174 +875,6 @@ class TextFormFieldWidget2 extends StatelessWidget {
         ),
         fillColor: Colors.white,
         filled: true,
-      ),
-    );
-  }
-}
-
-class AccessoriesPromoWidget extends StatelessWidget {
-  final AccessoryNoPromo promo;
-  final String? vatText;
-  final bool? isRed;
-  const AccessoriesPromoWidget({
-    super.key,
-    required this.promo,
-    this.vatText,
-    this.isRed = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 151.18,
-      width: 226.77,
-      // 226.77 / 188.98,
-      decoration: BoxDecoration(
-        // color: Colors.amber,
-        border: Border.all(
-          color: isRed == true ? Colors.red : Colors.black,
-          width: 2,
-        ),
-      ),
-      child: Column(
-        children: [
-          // heading
-          Container(
-            width: 227,
-            height: 30,
-            decoration: BoxDecoration(
-                // color: Colors.amber,
-                border: Border(
-                    bottom: BorderSide(
-              color: isRed == true ? Colors.red : Colors.black,
-              width: 2,
-            ))),
-            child: IntrinsicHeight(
-              child: Row(
-                children: [
-                  Container(
-                    width: 160,
-                    height: 50,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                        // color: Colors.blue,
-                        border: Border(
-                            right: BorderSide(
-                      color: isRed == true ? Colors.red : Colors.black,
-                      width: 1,
-                    ))),
-                    child: Text(
-                      promo.brandName.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontFamily: 'Myriad Pro',
-                        fontWeight: FontWeight.bold,
-                        height: 1.7,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 65.69,
-                    height: 50,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                        // color: Colors.blue,
-                        ),
-                    child: const Text(
-                      "PRICE",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontFamily: 'Myriad Pro',
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // items
-          Row(
-            children: [
-              // brand
-              Container(
-                width: 160.07,
-                height: 105,
-                decoration: BoxDecoration(
-                  // color: Colors.green,
-                  border: Border(
-                    right: BorderSide(
-                      color: isRed == true ? Colors.red : Colors.black,
-                      width: 1,
-                    ),
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  promo.barcode.toUpperCase(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontFamily: 'Myriad Pro',
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              // price
-              Container(
-                width: 65,
-                height: 105,
-                alignment: Alignment.center,
-                child: Text(
-                  promo.price.toStringAsFixed(2),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontFamily: 'Myriad Pro',
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          // text
-          Container(
-            height: 15,
-            decoration: BoxDecoration(
-              // color: Colors.amber,
-              border: Border(
-                top: BorderSide(
-                  color: isRed == true ? Colors.red : Colors.black,
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "* All prices are in AED",
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontFamily: 'Myriad Pro',
-                      color: isRed == true ? Colors.red : Colors.black,
-                    ),
-                  ),
-                  Text(
-                    vatText ?? "* All Prices Inclusive of VAT",
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontFamily: 'Myriad Pro',
-                      color: isRed == true ? Colors.red : Colors.black,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
